@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Zoom Integration Debug Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+        .section { 
+            background: white;
+            margin: 10px 0; 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .full-width { 
+            grid-column: 1 / -1; 
+        }
+        .success { 
+            background: #e7f5e7; 
+            border-color: #4caf50; 
+        }
+        .error { 
+            background: #ffe7e7; 
+            border-color: #f44336; 
+        }
+        .warning { 
+            background: #fff8e1; 
+            border-color: #ff9800; 
+        }
+        .info { 
+            background: #e3f2fd; 
+            border-color: #2196f3; 
+        }
+        pre { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 4px; 
+            overflow-x: auto; 
+            font-size: 11px; 
+            border: 1px solid #e0e0e0;
+        }
+        button { 
+            padding: 12px 20px; 
+            margin: 8px 5px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        .primary { 
+            background: #1976d2; 
+            color: white; 
+        }
+        .primary:hover { 
+            background: #1565c0; 
+        }
+        .success-btn { 
+            background: #4caf50; 
+            color: white; 
+        }
+        .success-btn:hover { 
+            background: #45a049; 
+        }
+        .danger { 
+            background: #f44336; 
+            color: white; 
+        }
+        .danger:hover { 
+            background: #d32f2f; 
+        }
+        input, select { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 5px 0; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            font-size: 14px;
+        }
+        .status { 
+            padding: 8px 15px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            display: inline-block;
+            margin: 5px;
+        }
+        .status.online { 
+            background: #4caf50; 
+            color: white; 
+        }
+        .status.offline { 
+            background: #f44336; 
+            color: white; 
+        }
+        .status.warning { 
+            background: #ff9800; 
+            color: white; 
+        }
+        h1, h2, h3 { 
+            color: #333; 
+            margin-top: 0; 
+        }
+        .flow-step {
+            border-left: 4px solid #1976d2;
+            padding-left: 15px;
+            margin: 10px 0;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .comparison > div {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Zoom SDK Integration Debug Tool</h1>
+    
+    <div class="section info full-width">
+        <h3>🎯 Test Objective</h3>
+        <p>This tool tests the complete flow from meeting creation → signature generation → format validation → join simulation</p>
+        <div id="backend-status">
+            <span class="status offline">Backend: Checking...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Left Column: Test Execution -->
+        <div class="section">
+            <h3>📋 Step 1: Create Test Meeting</h3>
+            <button class="primary" onclick="createTestMeeting()">Create Meeting</button>
+            <div id="meeting-status"></div>
+        </div>
+
+        <div class="section">
+            <h3>🔑 Step 2: Generate Signature</h3>
+            <button class="primary" onclick="generateSignature()">Generate Signature</button>
+            <div id="signature-status"></div>
+        </div>
+
+        <div class="section">
+            <h3>🔍 Step 3: Validate JWT</h3>
+            <button class="primary" onclick="validateJWT()">Decode & Validate JWT</button>
+            <div id="jwt-status"></div>
+        </div>
+
+        <div class="section">
+            <h3>🧪 Step 4: Format Testing</h3>
+            <input type="text" id="test-meeting-number" placeholder="Enter meeting number to test">
+            <button class="success-btn" onclick="testMeetingFormats()">Test Formats</button>
+            <div id="format-status"></div>
+        </div>
+
+        <div class="section full-width">
+            <h3>🔥 Step 5: Complete Integration Test</h3>
+            <button class="success-btn" onclick="runCompleteTest()">Run Full Integration Test</button>
+            <button class="danger" onclick="clearAllTests()">Clear All</button>
+            <div id="complete-test-status"></div>
+        </div>
+
+        <!-- Right Column: Results and Analysis -->
+        <div class="section full-width">
+            <h3>📊 Test Results & Analysis</h3>
+            <div id="analysis-results"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api/simple-zoom';
+        let testData = {
+            meeting: null,
+            signature: null,
+            jwtPayload: null,
+            issues: []
+        };
+
+        // Check backend status on load
+        window.onload = () => {
+            checkBackendStatus();
+            console.log('🔍 Zoom Debug Tool loaded');
+        };
+
+        async function checkBackendStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('backend-status');
+                if (data.success) {
+                    statusEl.innerHTML = '<span class="status online">Backend: Online ✅</span>';
+                } else {
+                    statusEl.innerHTML = '<span class="status warning">Backend: Partial ⚠️</span>';
+                }
+            } catch (error) {
+                document.getElementById('backend-status').innerHTML = 
+                    '<span class="status offline">Backend: Offline ❌</span>';
+            }
+        }
+
+        function log(elementId, content, className = '') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = content;
+            if (className) {
+                element.className = className;
+            }
+        }
+
+        async function createTestMeeting() {
+            try {
+                log('meeting-status', '⏳ Creating test meeting...', 'info');
+                
+                const response = await fetch(`${API_BASE}/create-meeting`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        topic: `Debug Test - ${new Date().toLocaleTimeString()}`,
+                        duration: 30,
+                        settings: {
+                            waiting_room: false,
+                            join_before_host: true
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                testData.meeting = data.meeting;
+                
+                document.getElementById('test-meeting-number').value = testData.meeting.id;
+                
+                log('meeting-status', 
+                    `<div class="flow-step">
+                        <h4>✅ Meeting Created Successfully</h4>
+                        <div class="comparison">
+                            <div><strong>Meeting ID:</strong><br>${testData.meeting.id}</div>
+                            <div><strong>Type:</strong><br>${typeof testData.meeting.id}</div>
+                        </div>
+                        <div class="comparison">
+                            <div><strong>Length:</strong><br>${testData.meeting.id.toString().length} digits</div>
+                            <div><strong>Join URL:</strong><br>${testData.meeting.join_url}</div>
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>`,
+                    'success'
+                );
+                
+                updateAnalysis();
+            } catch (error) {
+                testData.issues.push(`Meeting Creation: ${error.message}`);
+                log('meeting-status', 
+                    `<h4>❌ Meeting Creation Failed</h4>
+                     <p><strong>Error:</strong> ${error.message}</p>
+                     <p><strong>Check:</strong> Backend server, credentials, network</p>`, 
+                    'error'
+                );
+                updateAnalysis();
+            }
+        }
+
+        async function generateSignature() {
+            if (!testData.meeting) {
+                log('signature-status', '❌ Create a meeting first', 'error');
+                return;
+            }
+            
+            try {
+                log('signature-status', '⏳ Generating signature...', 'info');
+                
+                const response = await fetch(`${API_BASE}/generate-signature`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meetingNumber: testData.meeting.id,
+                        role: 0
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                testData.signature = data;
+                
+                const originalId = testData.meeting.id.toString();
+                const returnedNumber = data.meetingNumber.toString();
+                const numbersMatch = originalId === returnedNumber;
+                
+                if (!numbersMatch) {
+                    testData.issues.push(`Meeting number mismatch: ${originalId} → ${returnedNumber}`);
+                }
+                
+                log('signature-status', 
+                    `<div class="flow-step">
+                        <h4>✅ Signature Generated</h4>
+                        <div class="comparison">
+                            <div><strong>Original ID:</strong><br>${originalId}</div>
+                            <div><strong>Returned Number:</strong><br>${returnedNumber}</div>
+                        </div>
+                        <div class="comparison">
+                            <div><strong>Match Status:</strong><br>${numbersMatch ? '✅ MATCH' : '❌ MISMATCH'}</div>
+                            <div><strong>Has Signature:</strong><br>${data.signature ? '✅ YES' : '❌ NO'}</div>
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>`,
+                    numbersMatch ? 'success' : 'warning'
+                );
+                
+                updateAnalysis();
+            } catch (error) {
+                testData.issues.push(`Signature Generation: ${error.message}`);
+                log('signature-status', 
+                    `<h4>❌ Signature Generation Failed</h4>
+                     <p><strong>Error:</strong> ${error.message}</p>`, 
+                    'error'
+                );
+                updateAnalysis();
+            }
+        }
+
+        function validateJWT() {
+            if (!testData.signature) {
+                log('jwt-status', '❌ Generate a signature first', 'error');
+                return;
+            }
+            
+            try {
+                const parts = testData.signature.signature.split('.');
+                if (parts.length !== 3) {
+                    throw new Error('Invalid JWT format');
+                }
+                
+                const payload = JSON.parse(atob(parts[1]));
+                testData.jwtPayload = payload;
+                
+                const originalId = testData.meeting.id.toString();
+                const jwtMeetingNumber = payload.meetingNumber.toString();
+                const jwtMatches = originalId === jwtMeetingNumber;
+                
+                if (!jwtMatches) {
+                    testData.issues.push(`JWT meeting number mismatch: ${originalId} → ${jwtMeetingNumber}`);
+                }
+                
+                const isExpired = Date.now() > (payload.exp * 1000);
+                if (isExpired) {
+                    testData.issues.push('JWT signature is expired');
+                }
+                
+                log('jwt-status', 
+                    `<div class="flow-step">
+                        <h4>✅ JWT Decoded & Validated</h4>
+                        <div class="comparison">
+                            <div><strong>Original ID:</strong><br>${originalId}</div>
+                            <div><strong>JWT Meeting #:</strong><br>${jwtMeetingNumber}</div>
+                        </div>
+                        <div class="comparison">
+                            <div><strong>Match Status:</strong><br>${jwtMatches ? '✅ MATCH' : '❌ MISMATCH'}</div>
+                            <div><strong>Expired:</strong><br>${isExpired ? '❌ YES' : '✅ NO'}</div>
+                        </div>
+                        <div class="comparison">
+                            <div><strong>Expires:</strong><br>${new Date(payload.exp * 1000).toLocaleString()}</div>
+                            <div><strong>Role:</strong><br>${payload.role}</div>
+                        </div>
+                        <pre>${JSON.stringify(payload, null, 2)}</pre>
+                    </div>`,
+                    jwtMatches && !isExpired ? 'success' : 'warning'
+                );
+                
+                updateAnalysis();
+            } catch (error) {
+                testData.issues.push(`JWT Validation: ${error.message}`);
+                log('jwt-status', 
+                    `<h4>❌ JWT Validation Failed</h4>
+                     <p><strong>Error:</strong> ${error.message}</p>`, 
+                    'error'
+                );
+                updateAnalysis();
+            }
+        }
+
+        function testMeetingFormats() {
+            const testNumber = document.getElementById('test-meeting-number').value;
+            if (!testNumber) {
+                log('format-status', '❌ Please enter a meeting number', 'error');
+                return;
+            }
+            
+            // Simulate frontend normalization logic
+            const original = testNumber;
+            const asString = String(testNumber);
+            const cleaned = asString.replace(/[^0-9]/g, '');
+            const hasNonNumeric = /[^0-9]/.test(asString);
+            const isValidFormat = /^\\d{9,11}$/.test(cleaned);
+            const isValidLength = cleaned.length >= 9 && cleaned.length <= 11;
+            
+            // Test different format variations
+            const testFormats = [
+                { name: 'Original', value: original },
+                { name: 'String', value: asString },
+                { name: 'Cleaned', value: cleaned },
+                { name: 'With Spaces', value: cleaned.replace(/(\\d{3})(\\d{3})(\\d{4})/, '$1 $2 $3') },
+                { name: 'With Dashes', value: cleaned.replace(/(\\d{3})(\\d{3})(\\d{4})/, '$1-$2-$3') }
+            ];
+            
+            let formatResults = testFormats.map(format => {
+                const formatCleaned = String(format.value).replace(/[^0-9]/g, '');
+                const formatValid = /^\\d{9,11}$/.test(formatCleaned);
+                return {
+                    ...format,
+                    cleaned: formatCleaned,
+                    valid: formatValid,
+                    length: formatCleaned.length
+                };
+            });
+            
+            log('format-status', 
+                `<div class="flow-step">
+                    <h4>🔧 Format Analysis Results</h4>
+                    <div class="comparison">
+                        <div><strong>Has Non-Numeric:</strong><br>${hasNonNumeric ? '⚠️ YES' : '✅ NO'}</div>
+                        <div><strong>Valid Format:</strong><br>${isValidFormat && isValidLength ? '✅ YES' : '❌ NO'}</div>
+                    </div>
+                    ${formatResults.map(result => `
+                        <div class="comparison">
+                            <div><strong>${result.name}:</strong><br>"${result.value}"</div>
+                            <div><strong>Cleaned:</strong><br>"${result.cleaned}" (${result.length} digits) ${result.valid ? '✅' : '❌'}</div>
+                        </div>
+                    `).join('')}
+                </div>`,
+                isValidFormat && isValidLength ? 'success' : 'warning'
+            );
+            
+            updateAnalysis();
+        }
+
+        async function runCompleteTest() {
+            log('complete-test-status', '⏳ Running complete integration test...', 'info');
+            
+            testData = { meeting: null, signature: null, jwtPayload: null, issues: [] };
+            
+            try {
+                // Step 1: Create Meeting
+                await createTestMeeting();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Step 2: Generate Signature
+                await generateSignature();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Step 3: Validate JWT
+                validateJWT();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Step 4: Test Formats
+                testMeetingFormats();
+                
+                // Final Analysis
+                const hasIssues = testData.issues.length > 0;
+                const overallStatus = hasIssues ? 'warning' : 'success';
+                
+                log('complete-test-status', 
+                    `<div class="flow-step">
+                        <h4>${hasIssues ? '⚠️ Test Completed with Issues' : '✅ All Tests Passed'}</h4>
+                        <p><strong>Status:</strong> ${hasIssues ? 'Some issues found' : 'Integration working correctly'}</p>
+                        ${hasIssues ? `
+                            <p><strong>Issues Found:</strong></p>
+                            <ul>${testData.issues.map(issue => `<li>${issue}</li>`).join('')}</ul>
+                        ` : '<p><strong>All components are working correctly!</strong></p>'}
+                        <p><strong>Ready for frontend testing</strong></p>
+                    </div>`,
+                    overallStatus
+                );
+                
+            } catch (error) {
+                log('complete-test-status', 
+                    `<h4>❌ Integration Test Failed</h4>
+                     <p><strong>Error:</strong> ${error.message}</p>`, 
+                    'error'
+                );
+            }
+            
+            updateAnalysis();
+        }
+
+        function clearAllTests() {
+            testData = { meeting: null, signature: null, jwtPayload: null, issues: [] };
+            const statusElements = ['meeting-status', 'signature-status', 'jwt-status', 'format-status', 'complete-test-status', 'analysis-results'];
+            statusElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.innerHTML = '';
+                    element.className = '';
+                }
+            });
+            document.getElementById('test-meeting-number').value = '';
+            console.log('🧹 All tests cleared');
+        }
+
+        function updateAnalysis() {
+            const analysisEl = document.getElementById('analysis-results');
+            if (!testData.meeting && !testData.signature && !testData.jwtPayload) {
+                analysisEl.innerHTML = '<p>No test data available. Run tests to see analysis.</p>';
+                return;
+            }
+            
+            let analysis = '<div class="flow-step"><h4>📊 Current Analysis</h4>';
+            
+            if (testData.meeting) {
+                analysis += `<p><strong>✅ Meeting Created:</strong> ID ${testData.meeting.id} (${typeof testData.meeting.id})</p>`;
+            }
+            
+            if (testData.signature) {
+                const match = testData.meeting && testData.meeting.id.toString() === testData.signature.meetingNumber.toString();
+                analysis += `<p><strong>${match ? '✅' : '⚠️'} Signature Generated:</strong> Meeting number ${match ? 'matches' : 'differs'}</p>`;
+            }
+            
+            if (testData.jwtPayload) {
+                const jwtMatch = testData.meeting && testData.meeting.id.toString() === testData.jwtPayload.meetingNumber.toString();
+                const expired = Date.now() > (testData.jwtPayload.exp * 1000);
+                analysis += `<p><strong>${jwtMatch && !expired ? '✅' : '⚠️'} JWT Valid:</strong> ${jwtMatch ? 'Numbers match' : 'Numbers differ'}, ${expired ? 'Expired' : 'Valid'}</p>`;
+            }
+            
+            if (testData.issues.length > 0) {
+                analysis += '<p><strong>🚨 Issues Detected:</strong></p><ul>';
+                testData.issues.forEach(issue => {
+                    analysis += `<li>${issue}</li>`;
+                });
+                analysis += '</ul>';
+            } else if (testData.meeting && testData.signature && testData.jwtPayload) {
+                analysis += '<p><strong>🎉 No Issues Detected!</strong> Your backend integration is working correctly.</p>';
+            }
+            
+            analysis += '</div>';
+            analysisEl.innerHTML = analysis;
+        }
+    </script>
+</body>
+</html>
