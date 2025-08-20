@@ -1,6 +1,6 @@
 # Schoolproject - Full-Stack Application
 
-A comprehensive school management system with React frontend, Node.js backend, and MongoDB database, featuring Zoom integration for meeting management and attendance tracking.
+A comprehensive school management system with React frontend, Node.js backend, and MongoDB database, featuring Zoom integration for meeting management and **QR Code Attendance System** for seamless attendance tracking.
 
 ## 📁 Project Structure
 
@@ -109,6 +109,7 @@ Schoolproject/
 
 ### Key Features
 - 🎯 **Advanced Attendance Tracking**: Real-time webhook-based attendance with HMAC security
+- 📱 **QR Code Attendance System**: Generate, scan, and track attendance via QR codes
 - 🎥 **Zoom Integration**: Meeting creation, management, and comprehensive reporting
 - 👥 **Smart Student Matching**: Automatic participant-to-student linking
 - 📊 **Real-time Analytics**: Live attendance monitoring with Socket.IO
