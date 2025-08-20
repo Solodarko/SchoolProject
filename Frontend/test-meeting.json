@@ -1,0 +1,14 @@
+{
+  "topic": "Real-time Test Meeting",
+  "agenda": "Testing real-time updates for admin dashboard",
+  "duration": 30,
+  "password": "test123",
+  "type": 1,
+  "settings": {
+    "host_video": true,
+    "participant_video": true,
+    "mute_upon_entry": true,
+    "waiting_room": false,
+    "auto_recording": "none"
+  }
+}

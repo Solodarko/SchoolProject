@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom SDK Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .container {
+            border: 2px solid #ccc;
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+        }
+        
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Zoom SDK Container Debug Test</h1>
+    
+    <p>This page tests Zoom SDK initialization and container detection outside of React.</p>
+    
+    <div>
+        <button onclick="testContainerDetection()">Test Container Detection</button>
+        <button onclick="testSDKLoad()">Load Zoom SDK</button>
+        <button onclick="testInitialization()">Test Initialization</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <!-- Meeting Container -->
+    <div id="zoom-meeting-container" class="container">
+        <div>Zoom Meeting Container (Ready)</div>
+    </div>
+    
+    <!-- Alternative Container -->
+    <div id="zoom-meeting-container-alt" class="container">
+        <div>Alternative Container</div>
+    </div>
+    
+    <!-- Console Log -->
+    <div id="console-log" class="log"></div>
+    
+    <script>
+        let logElement = document.getElementById('console-log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            console.log(`[${timestamp}] ${message}`);
+            logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '';
+        }
+        
+        function testContainerDetection() {
+            log('=== Testing Container Detection ===', 'info');
+            
+            // Test direct getElementById
+            const container1 = document.getElementById('zoom-meeting-container');
+            log(`getElementById result: ${container1 ? 'FOUND' : 'NOT FOUND'}`, container1 ? 'success' : 'error');
+            
+            if (container1) {
+                log(`Container dimensions: ${container1.offsetWidth}x${container1.offsetHeight}`, 'info');
+                log(`Container position: top=${container1.offsetTop}, left=${container1.offsetLeft}`, 'info');
+                log(`Container style: ${container1.style.cssText}`, 'info');
+            }
+            
+            // Test querySelector
+            const container2 = document.querySelector('#zoom-meeting-container');
+            log(`querySelector result: ${container2 ? 'FOUND' : 'NOT FOUND'}`, container2 ? 'success' : 'error');
+            
+            // Test all possible containers
+            const containerIds = ['zoom-meeting-container', 'zoom-meeting-container-alt', 'meeting-container'];
+            containerIds.forEach(id => {
+                const element = document.getElementById(id);
+                log(`Container '${id}': ${element ? 'EXISTS' : 'MISSING'}`, element ? 'success' : 'error');
+            });
+            
+            log('Container detection test complete!', 'success');
+        }
+        
+        async function testSDKLoad() {
+            log('=== Testing Zoom SDK Load ===', 'info');
+            
+            try {
+                log('Attempting to load @zoom/meetingsdk...', 'info');
+                
+                // Try to import the SDK
+                const sdkModule = await import('https://cdn.jsdelivr.net/npm/@zoom/meetingsdk@latest/dist/zoomus-websdk.umd.min.js');
+                log('SDK import successful!', 'success');
+                log(`SDK module keys: ${Object.keys(sdkModule)}`, 'info');
+                
+                // Check for ZoomMtg global
+                if (window.ZoomMtg) {
+                    log('ZoomMtg found in global scope!', 'success');
+                    log(`ZoomMtg methods: init=${typeof window.ZoomMtg.init}, join=${typeof window.ZoomMtg.join}`, 'info');
+                } else {
+                    log('ZoomMtg NOT found in global scope', 'error');
+                }
+                
+            } catch (error) {
+                log(`SDK load failed: ${error.message}`, 'error');
+                log('Trying fallback CDN...', 'info');
+                
+                // Fallback to script tag
+                const script = document.createElement('script');
+                script.src = 'https://source.zoom.us/2.18.0/lib/vendor/zoom-meeting-2.18.0.min.js';
+                script.onload = () => {
+                    log('CDN SDK loaded successfully!', 'success');
+                    if (window.ZoomMtg) {
+                        log('ZoomMtg available from CDN!', 'success');
+                    }
+                };
+                script.onerror = () => {
+                    log('CDN SDK load failed!', 'error');
+                };
+                document.head.appendChild(script);
+            }
+        }
+        
+        async function testInitialization() {
+            log('=== Testing SDK Initialization ===', 'info');
+            
+            if (!window.ZoomMtg) {
+                log('ZoomMtg not available! Load SDK first.', 'error');
+                return;
+            }
+            
+            const container = document.getElementById('zoom-meeting-container');
+            if (!container) {
+                log('Container not found!', 'error');
+                return;
+            }
+            
+            try {
+                log('Initializing ZoomMtg...', 'info');
+                
+                await window.ZoomMtg.init({
+                    leaveUrl: window.location.origin,
+                    isSupportAV: true,
+                    success: function(success) {
+                        log('SDK initialization successful!', 'success');
+                        log(`Success details: ${JSON.stringify(success)}`, 'info');
+                    },
+                    error: function(error) {
+                        log(`SDK initialization failed: ${JSON.stringify(error)}`, 'error');
+                    }
+                });
+                
+                log('Initialization call completed!', 'success');
+                
+            } catch (error) {
+                log(`Initialization error: ${error.message}`, 'error');
+                log(`Error stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        // Auto-test container on load
+        window.onload = function() {
+            log('Page loaded. Running automatic container test...', 'info');
+            testContainerDetection();
+        };
+    </script>
+</body>
+</html>

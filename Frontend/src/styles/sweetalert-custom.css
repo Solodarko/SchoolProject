@@ -1,0 +1,156 @@
+/* Custom SweetAlert2 styles for better UX */
+
+/* Make the popup wider for detailed content */
+.swal-wide {
+  width: 600px !important;
+  max-width: 90vw !important;
+}
+
+/* Custom confirm button styling */
+.swal-confirm-delete {
+  background: linear-gradient(45deg, #d32f2f 30%, #f44336 90%) !important;
+  border: none !important;
+  box-shadow: 0 3px 5px 2px rgba(211, 47, 47, 0.3) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  transition: all 0.3s ease !important;
+}
+
+.swal-confirm-delete:hover {
+  background: linear-gradient(45deg, #b71c1c 30%, #d32f2f 90%) !important;
+  box-shadow: 0 4px 8px 3px rgba(211, 47, 47, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-confirm-delete:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 4px 1px rgba(211, 47, 47, 0.3) !important;
+}
+
+/* Custom cancel button styling */
+.swal-cancel-button {
+  background: linear-gradient(45deg, #666 30%, #888 90%) !important;
+  border: none !important;
+  box-shadow: 0 3px 5px 2px rgba(102, 102, 102, 0.3) !important;
+  color: white !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  transition: all 0.3s ease !important;
+}
+
+.swal-cancel-button:hover {
+  background: linear-gradient(45deg, #555 30%, #777 90%) !important;
+  box-shadow: 0 4px 8px 3px rgba(102, 102, 102, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.swal-cancel-button:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 4px 1px rgba(102, 102, 102, 0.3) !important;
+}
+
+/* Custom popup container styling */
+.swal2-popup {
+  border-radius: 16px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Custom title styling */
+.swal2-title {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: #333 !important;
+  margin-bottom: 1rem !important;
+}
+
+/* Custom content styling */
+.swal2-html-container {
+  font-size: 1rem !important;
+  line-height: 1.5 !important;
+  color: #555 !important;
+}
+
+/* Custom icon styling */
+.swal2-icon.swal2-warning {
+  border-color: #ff9800 !important;
+  color: #ff9800 !important;
+}
+
+.swal2-icon.swal2-success {
+  border-color: #4caf50 !important;
+  color: #4caf50 !important;
+}
+
+.swal2-icon.swal2-info {
+  border-color: #2196f3 !important;
+  color: #2196f3 !important;
+}
+
+/* Loading spinner customization */
+.swal2-loader {
+  border-left-color: #2196f3 !important;
+  border-bottom-color: #2196f3 !important;
+}
+
+/* Progress bar customization */
+.swal2-timer-progress-bar {
+  background: #4caf50 !important;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .swal-wide {
+    width: 95vw !important;
+    margin: 10px !important;
+  }
+  
+  .swal2-title {
+    font-size: 1.3rem !important;
+  }
+  
+  .swal-confirm-delete,
+  .swal-cancel-button {
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+/* Animation enhancements */
+.swal2-show {
+  animation: swal2-show 0.3s ease-out !important;
+}
+
+.swal2-hide {
+  animation: swal2-hide 0.15s ease-in !important;
+}
+
+@keyframes swal2-show {
+  0% {
+    transform: scale(0.7) translateY(-10px);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.05) translateY(0);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes swal2-hide {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5) translateY(-10px);
+    opacity: 0;
+  }
+}

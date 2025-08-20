@@ -1,0 +1,13 @@
+{
+  "title": "Meeting Participants Test - Dashboard Demo",
+  "description": "Testing real-time participant tracking and data display in admin dashboard",
+  "startTime": "2025-08-17T22:35:00.000Z",
+  "endTime": "2025-08-17T23:35:00.000Z",
+  "type": "online",
+  "status": "scheduled",
+  "participants": ["Test Participant 1", "Test Participant 2", "Test Participant 3"],
+  "location": "Zoom Meeting",
+  "organizer": "test-admin@participantstest.com",
+  "duration": "60 min",
+  "agenda": "1. Test participant join/leave events\n2. Verify real-time updates\n3. Check authentication status display\n4. Validate statistics calculation"
+}
