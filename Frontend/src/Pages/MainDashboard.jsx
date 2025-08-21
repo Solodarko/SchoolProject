@@ -16,7 +16,6 @@ import {
   LibraryBooks,
   LiveTv,
   Assessment,
-  Science as TestIcon,
 } from '@mui/icons-material';
 import Videocam from '@mui/icons-material/Videocam'; // ✅ Correct
 
@@ -27,8 +26,6 @@ const USER_NAVIGATION = [
   { kind: "header", title: "Attendance" },
   { segment: "ZoomIntegration", title: "Zoom Meetings", icon: <Videocam /> },
   { segment: "scan", title: "QR Scanner", icon: <QrCodeScannerIcon /> },
-  { segment: "qr-attendance", title: "QR Attendance", icon: <QrCodeScannerIcon /> },
-  { segment: "qr-token-test", title: "🔬 QR Token Test", icon: <TestIcon /> },
   { segment: "my-attendance", title: "My Attendance", icon: <EventNote /> },
   { kind: "header", title: "Learning" },
   { segment: "my-courses", title: "My Courses", icon: <School /> },

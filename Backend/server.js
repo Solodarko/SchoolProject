@@ -22,6 +22,7 @@ const zoomRoutes = require('./routes/zoom');
 const attendanceTracker85Routes = require('./routes/attendanceTracker85');
 const zoomDurationAttendanceRoutes = require('./routes/zoomDurationAttendance');
 const zoomClearRoutes = require('./routes/zoomClear');
+const attendanceRoutes = require('./routes/Attendance');
 
 // Unified Attendance Tracking System (replaces all old attendance systems)
 const { router: unifiedAttendanceRoutes, initializeUnifiedTracker } = require('./routes/unifiedAttendance');
@@ -524,6 +525,10 @@ console.log('🧹 Zoom Clear routes mounted at /api/zoom');
 console.log('📊 85% Attendance Tracker routes mounted at /api/zoom');
 console.log('📈 Zoom Duration Attendance routes mounted at /api/attendance-tracker');
 
+// Regular Attendance Tracking System (includes QR functionality)
+app.use('/api/attendance', attendanceRoutes);
+console.log('📊 Attendance routes mounted at /api/attendance');
+
 // Unified Attendance Tracking System (replaces all old attendance systems)
 app.use('/api/attendance-unified', unifiedAttendanceRoutes);
 
@@ -851,7 +856,3 @@ process.on('uncaughtException', (error) => {
 });
 
 console.log('🛡️ Process handlers registered for graceful shutdown');
-// QR Token Test Routes
-const qrTokenTestRoutes = require('./routes/qrTokenTest');
-app.use('/api/qr-token-test', qrTokenTestRoutes);
-console.log('🔬 QR Token Test routes mounted at /api/qr-token-test');

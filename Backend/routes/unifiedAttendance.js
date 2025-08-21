@@ -399,6 +399,286 @@ router.delete('/meeting/:meetingId/clear', async (req, res) => {
   }
 });
 
+// ==================== QR CODE ROUTES ====================
+
+/**
+ * QR Code Location Recording - Process QR scanner attendance
+ */
+router.post('/qr-location', async (req, res) => {
+  try {
+    console.log('📱 [QR LOCATION] Processing QR location data:', req.body);
+
+    const { qrCodeData, userLocation, studentId, additionalData } = req.body;
+
+    // Validate required fields
+    if (!qrCodeData || !userLocation || !studentId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: qrCodeData, userLocation, and studentId are required',
+        received: { qrCodeData: !!qrCodeData, userLocation: !!userLocation, studentId: !!studentId }
+      });
+    }
+
+    // Import models
+    const Attendance = require('../models/Attendance');
+    const Student = require('../models/Student');
+
+    // Parse QR code data
+    let parsedQRData;
+    try {
+      parsedQRData = typeof qrCodeData === 'string' ? JSON.parse(qrCodeData) : qrCodeData;
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid QR code data format',
+        details: error.message
+      });
+    }
+
+    // Calculate distance between user location and QR location
+    const distance = calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      parsedQRData.location?.latitude || 0,
+      parsedQRData.location?.longitude || 0
+    );
+
+    // Validate proximity (within 50 meters)
+    const maxDistance = 50; // meters
+    const isWithinRange = distance <= maxDistance;
+
+    // Create attendance record with proper schema fields
+    const attendanceRecord = new Attendance({
+      StudentID: parseInt(studentId), // Required field
+      Date: new Date(), // Required field
+      Status: isWithinRange ? 'Present' : 'Absent', // Required field
+      attendanceType: 'qr_scan',
+      Remarks: `QR code attendance - ${isWithinRange ? 'verified location' : 'location verification failed'}`,
+      verificationStatus: isWithinRange ? 'verified' : 'unverified',
+      qrScannerLocation: {
+        coordinates: {
+          latitude: parseFloat(userLocation.latitude),
+          longitude: parseFloat(userLocation.longitude),
+          formatted: {
+            latitude: `${userLocation.latitude}N`,
+            longitude: `${userLocation.longitude}W`
+          }
+        },
+        distance: Math.round(distance * 100) / 100,
+        accuracy: userLocation.accuracy || null,
+        timestamp: new Date()
+      },
+      locationVerification: {
+        method: 'qr_scanner',
+        status: isWithinRange ? 'verified' : 'failed',
+        proximity: {
+          distance: Math.round(distance * 100) / 100,
+          maxAllowed: maxDistance,
+          isWithinRange: isWithinRange
+        },
+        verifiedAt: isWithinRange ? new Date() : null,
+        notes: isWithinRange 
+          ? `Location verified - within ${distance.toFixed(2)}m of QR scanner`
+          : `Location verification failed - ${distance.toFixed(2)}m from QR scanner (max: ${maxDistance}m)`
+      },
+      metadata: {
+        ...additionalData,
+        qrCodeData: parsedQRData
+      }
+    });
+
+    // Save to database
+    const savedRecord = await attendanceRecord.save();
+
+    // Get student information
+    const studentInfo = await Student.findOne({ studentId: studentId }).lean();
+
+    // Prepare response data
+    const responseData = {
+      success: true,
+      message: 'QR scanner location recorded successfully (unified)',
+      attendanceId: savedRecord._id,
+      studentId: studentId,
+      studentInfo: studentInfo,
+      location: {
+        coordinates: savedRecord.qrScannerLocation.coordinates,
+        distance: savedRecord.qrScannerLocation.distance,
+        verification: {
+          method: savedRecord.locationVerification.method,
+          status: savedRecord.locationVerification.status,
+          timestamp: savedRecord.locationVerification.verifiedAt || savedRecord.createdAt,
+          proximity: {
+            distance: savedRecord.locationVerification.proximity.distance,
+            maxDistance: savedRecord.locationVerification.proximity.maxAllowed,
+            isWithinRange: savedRecord.locationVerification.proximity.isWithinRange,
+            message: savedRecord.locationVerification.notes
+          }
+        }
+      },
+      qrCodeInfo: parsedQRData,
+      status: savedRecord.Status,
+      timestamp: savedRecord.createdAt
+    };
+
+    // Emit real-time update via Socket.IO (compatible with frontend)
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      const globalState = req.app.get('globalState') || {};
+      
+      // Create comprehensive attendance notification for admin dashboard
+      const attendanceNotification = {
+        id: `attendance_${savedRecord._id}`,
+        type: 'attendance_recorded',
+        icon: '✅',
+        title: 'New QR Attendance Recorded (Unified)',
+        message: `${studentInfo?.name || 'Student'} marked ${savedRecord.Status.toLowerCase()}`,
+        studentInfo: {
+          studentId: studentId,
+          name: studentInfo?.name || 'Unknown Student',
+          email: studentInfo?.email || null,
+          department: studentInfo?.department || null
+        },
+        attendanceDetails: {
+          attendanceId: savedRecord._id,
+          date: savedRecord.Date.toLocaleDateString(),
+          time: savedRecord.Date.toLocaleTimeString(),
+          status: savedRecord.Status,
+          method: 'QR Code Scan',
+          location: {
+            coordinates: savedRecord.qrScannerLocation.coordinates,
+            distance: savedRecord.qrScannerLocation.distance,
+            accuracy: savedRecord.qrScannerLocation.accuracy
+          },
+          verification: savedRecord.locationVerification.status
+        },
+        qrCodeInfo: {
+          qrCodeId: parsedQRData.id,
+          generatedBy: 'System',
+          generatedAt: parsedQRData.timestamp,
+          location: parsedQRData.location
+        },
+        timestamp: new Date().toISOString(),
+        priority: 'high'
+      };
+      
+      // Add to global notification state
+      globalState.notifications = globalState.notifications || [];
+      globalState.notifications.push(attendanceNotification);
+      
+      // Keep only last 100 notifications
+      if (globalState.notifications.length > 100) {
+        globalState.notifications = globalState.notifications.slice(-100);
+      }
+      
+      // Emit to all connected admin clients (compatible with frontend)
+      console.log('📡 [QR LOCATION] Emitting attendanceRecorded event...');
+      io.emit('attendanceRecorded', attendanceNotification);
+      
+      // Also emit as a general notification
+      console.log('📡 [QR LOCATION] Emitting notification event...');
+      io.emit('notification', attendanceNotification);
+      
+      // Emit to admin dashboard specifically
+      console.log('📡 [QR LOCATION] Emitting realTimeAttendanceUpdate to admin_dashboard room...');
+      io.to('admin_dashboard').emit('realTimeAttendanceUpdate', {
+        type: 'new_attendance',
+        data: {
+          attendance: {
+            _id: savedRecord._id,
+            studentId: studentId,
+            studentName: studentInfo?.name || 'Unknown Student',
+            date: savedRecord.Date,
+            status: savedRecord.Status,
+            location: savedRecord.qrScannerLocation.coordinates,
+            method: 'QR Scan',
+            verification: savedRecord.locationVerification.status
+          },
+          studentInfo,
+          qrCodeInfo: {
+            generatedBy: 'System',
+            qrId: parsedQRData.id
+          }
+        },
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log('📡 [QR LOCATION] All Socket.IO events emitted successfully');
+    }
+
+    res.status(201).json(responseData);
+
+  } catch (error) {
+    console.error('❌ [QR LOCATION] Error processing QR location:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Get QR Location Statistics
+ */
+router.get('/qr-location/stats', async (req, res) => {
+  try {
+    const Attendance = require('../models/Attendance');
+    
+    const stats = await Attendance.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalScans: { $sum: 1 },
+          uniqueStudents: { $addToSet: '$studentId' },
+          averageDistance: { $avg: '$location.distance' },
+          verifiedScans: {
+            $sum: {
+              $cond: [{ $eq: ['$location.verification.status', 'verified'] }, 1, 0]
+            }
+          },
+          failedScans: {
+            $sum: {
+              $cond: [{ $eq: ['$location.verification.status', 'failed'] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const result = stats[0] || {
+      totalScans: 0,
+      uniqueStudents: [],
+      averageDistance: 0,
+      verifiedScans: 0,
+      failedScans: 0
+    };
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalScans: result.totalScans,
+        uniqueStudents: result.uniqueStudents.length,
+        averageDistance: Math.round(result.averageDistance * 100) / 100,
+        verificationStatus: {
+          verified: result.verifiedScans,
+          failed: result.failedScans,
+          pending: 0, // QR scans are immediately verified/failed
+          locationMismatch: result.failedScans
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ [QR STATS] Error getting QR location stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 /**
  * Health Check
  */
@@ -409,10 +689,28 @@ router.get('/health', (req, res) => {
     services: {
       webhookTracking: 'active',
       tokenTracking: 'active',
-      unifiedData: 'active'
+      unifiedData: 'active',
+      qrLocation: 'active'
     },
     timestamp: new Date().toISOString()
   });
 });
+
+// Helper function to calculate distance between two coordinates
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI/180; // φ, λ in radians
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  const distance = R * c; // in metres
+  return distance;
+}
 
 module.exports = { router, initializeUnifiedTracker };

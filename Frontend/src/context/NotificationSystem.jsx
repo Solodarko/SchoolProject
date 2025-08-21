@@ -37,7 +37,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import notificationService from '../services/NotificationService';
+// import notificationService from '../services/NotificationService'; // Not currently used
 
 // Notification categories
 export const NOTIFICATION_CATEGORIES = {

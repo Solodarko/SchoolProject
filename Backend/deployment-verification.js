@@ -168,8 +168,8 @@ async function testQRCodeFlow() {
       qrCodeData: testQRCode,
       scannerLocation: {
         coordinates: {
-          latitude: 5.636096,
-          longitude: -0.196608
+          latitude: 5.298880,
+          longitude: -2.001131
         },
         distance: 1.0
       },

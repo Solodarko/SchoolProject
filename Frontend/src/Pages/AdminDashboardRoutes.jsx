@@ -21,7 +21,6 @@ import UnifiedAdminAnalytics from '../Components/Admin/UnifiedAdminAnalytics';
 import JoinTrackingDashboard from '../Components/Admin/JoinTrackingDashboard';
 import AdminMeetingTablePage from '../Components/Admin/AdminMeetingTablePage';
 import AttendanceDataDebugger from '../Components/Admin/AttendanceDataDebugger';
-import HiddenComponentsAnalyzer from '../Components/Admin/HiddenComponentsAnalyzer';
 
 // Placeholder components for remaining features
 const RoleManagement = () => <div>Role Management Page - Coming Soon</div>;
@@ -49,7 +48,6 @@ const AdminDashboardRoutes = () => {
       <Route path="/meeting-participants" element={<AdminMeetingTablePage />} />
       <Route path="/join-tracking" element={<JoinTrackingDashboard />} />
       <Route path="/debug-attendance" element={<AttendanceDataDebugger />} />
-      <Route path="/hidden-components" element={<HiddenComponentsAnalyzer />} />
       <Route path="/security" element={<SecuritySettings />} />
       <Route path="/admin-tools" element={<AdminTools />} />
     </Routes>

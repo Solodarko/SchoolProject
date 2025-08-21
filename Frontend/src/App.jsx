@@ -11,7 +11,7 @@ import ProtectedRoute from './Components/ProtectedRoute';
 import RealTimeNotificationInit from './Components/RealTimeNotificationInit';
 import ErrorBoundary from './Components/ErrorBoundary';
 import QRAttendancePage from './Pages/QRAttendancePage';
-import QRAttendanceForm from './Components/QR/QRAttendanceForm';
+import QRAttendanceForm from './Components/QRCode/QRAttendanceForm';
 import './utils/chromeExtensionFix'; // Handle Chrome extension errors
 import './utils/performanceMonitor'; // Initialize performance monitoring
 import './utils/safeConsoleMonitor'; // Initialize safe console error monitoring

@@ -1035,7 +1035,15 @@ router.post('/qr-location', async (req, res) => {
       attendanceType,
       // NEW: QR code data with embedded user identity
       qrCodeData,
-      qrCodeString
+      qrCodeString,
+      // NEW: Additional form data from SweetAlert2 modal
+      name,
+      email,
+      phoneNumber,
+      organization,
+      position,
+      notes,
+      deviceInfo
     } = req.body;
     
     let finalStudentId, finalCoordinates, qrValidationResult, attendanceMetadata;
@@ -1158,6 +1166,19 @@ router.post('/qr-location', async (req, res) => {
           qrCode: JSON.stringify(attendanceMetadata),
           generatedBy: attendanceMetadata.generatedBy,
           qrCodeId: attendanceMetadata.qrCodeId
+        }),
+        // Include form data from SweetAlert2 modal if available
+        ...(name && {
+          formData: JSON.stringify({
+            name: name?.trim(),
+            email: email?.trim(),
+            phoneNumber: phoneNumber?.trim(),
+            organization: organization?.trim(),
+            position: position?.trim(),
+            notes: notes?.trim(),
+            submittedAt: new Date().toISOString(),
+            deviceInfo: deviceInfo || null
+          })
         })
       },
       verificationStatus: 'verified'
@@ -1398,11 +1419,11 @@ router.get('/qr-location/info', async (req, res) => {
     // QR scanner reference coordinates (user's actual GPS location)
     const qrScannerReference = {
       coordinates: {
-        latitude: 5.636096,
-        longitude: -0.196608,
+        latitude: 5.298880,
+        longitude: -2.001131,
         formatted: {
-          latitude: '5.636096N',
-          longitude: '0.196608W'
+          latitude: '5.298880N',
+          longitude: '2.001131W'
         }
       },
       radius: 5, // 5 meter geofence radius - Very precise location control

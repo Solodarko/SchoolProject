@@ -31,7 +31,9 @@
   },
   "scripts": {
     "start": "node server.js",
+    "start-check": "node start-with-checks.js",
     "dev": "nodemon server.js",
+    "dev-check": "nodemon start-with-checks.js",
     "build": "echo 'No build step required for Node.js backend'",
     "test": "echo 'No tests specified'",
     "test-db": "node -e \"require('dotenv').config(); require('./config/db')().then(() => { console.log('✅ Database connection successful!'); process.exit(0); }).catch(err => { console.error('❌ Database connection failed:', err.message); process.exit(1); });\"",

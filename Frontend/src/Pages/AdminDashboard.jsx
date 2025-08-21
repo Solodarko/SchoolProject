@@ -29,7 +29,6 @@ import {
   Insights,
   Hub as UnifiedIcon,
   TrackChanges as JoinTrackingIcon,
-  VisibilityOff as HiddenComponentsIcon
 } from '@mui/icons-material';
 
 const ADMIN_NAVIGATION = [
@@ -56,7 +55,6 @@ const ADMIN_NAVIGATION = [
   { segment: "meeting-participants", title: "📊 Live Participants Table", icon: <EventNoteIcon /> },
   { segment: "join-tracking", title: "Join Tracking Data", icon: <JoinTrackingIcon /> },
   { kind: "header", title: "System Management" },
-  { segment: "hidden-components", title: "🔍 Hidden Components", icon: <HiddenComponentsIcon /> },
   { segment: "security", title: "Security Settings", icon: <Security /> },
   { segment: "admin-tools", title: "Admin Tools", icon: <SupervisorAccount /> },
 ];

@@ -66,7 +66,29 @@ const QRAttendanceForm = () => {
       try {
         const parsedData = JSON.parse(decodeURIComponent(dataParam));
         
-        if (parsedData.type === 'attendance' && parsedData.sessionId) {
+        // Handle new attendance QR code format
+        if (parsedData.type === 'attendance_check' && parsedData.attendanceConfig) {
+          // Check if QR code is still valid
+          const now = new Date();
+          const expiresAt = new Date(parsedData.expiresAt);
+          
+          if (expiresAt < now) {
+            setError('This QR code has expired. Please request a new one from the administrator.');
+          } else {
+            setQrData(parsedData);
+            
+            // Pre-fill form if user data is available in QR code
+            if (parsedData.user) {
+              setFormData(prev => ({
+                ...prev,
+                name: parsedData.user.fullName || `${parsedData.user.firstName || ''} ${parsedData.user.lastName || ''}`.trim() || prev.name,
+                email: parsedData.user.email || prev.email,
+              }));
+            }
+          }
+        }
+        // Handle legacy format for backward compatibility
+        else if (parsedData.type === 'attendance' && parsedData.sessionId) {
           // Check if QR code is still valid
           const now = new Date();
           const validUntil = new Date(parsedData.validUntil);
@@ -77,7 +99,7 @@ const QRAttendanceForm = () => {
             setQrData(parsedData);
           }
         } else {
-          setError('Invalid QR code format.');
+          setError('Invalid QR code format. Please scan a valid attendance QR code.');
         }
       } catch (parseError) {
         console.error('Error parsing QR data:', parseError);
@@ -156,21 +178,40 @@ const QRAttendanceForm = () => {
         }
       }
 
+      // Prepare attendance data for our backend endpoint
       const attendanceData = {
-        sessionId: qrData.sessionId,
-        qrCodeId: qrData.qrCodeId,
-        sessionTitle: qrData.sessionTitle,
+        // QR Code data
+        qrData: JSON.stringify(qrData),
+        
+        // User form data
         name: formData.name.trim(),
         email: formData.email.trim(),
         phoneNumber: formData.phoneNumber.trim(),
         organization: formData.organization.trim(),
         position: formData.position.trim(),
         notes: formData.notes.trim(),
+        
+        // Technical data
         deviceInfo,
         location,
+        
+        // For new QR format compatibility
+        ...(qrData.type === 'attendance_check' && {
+          qrCodeId: qrData.id,
+          sessionTitle: qrData.attendanceConfig?.sessionTitle || `Attendance - ${new Date(qrData.timestamp).toLocaleString()}`,
+          timestamp: qrData.timestamp,
+          adminId: qrData.adminId,
+        }),
+        
+        // For legacy format compatibility  
+        ...(qrData.type === 'attendance' && {
+          sessionId: qrData.sessionId,
+          qrCodeId: qrData.qrCodeId,
+          sessionTitle: qrData.sessionTitle,
+        })
       };
 
-      const response = await axios.post('http://localhost:5000/api/qr-attendance/record', attendanceData);
+      const response = await axios.post('http://localhost:5000/api/attendance/qr-location', attendanceData);
 
       if (response.data.success) {
         setSuccess(true);
@@ -289,7 +330,7 @@ const QRAttendanceForm = () => {
                 Register Attendance
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {qrData?.sessionTitle}
+                {qrData?.attendanceConfig?.sessionTitle || qrData?.sessionTitle || `Attendance Session - ${new Date(qrData?.timestamp || Date.now()).toLocaleString()}`}
               </Typography>
             </Box>
             <Chip
@@ -307,7 +348,7 @@ const QRAttendanceForm = () => {
               <Stack direction="row" spacing={1} alignItems="center">
                 <ScheduleIcon fontSize="small" color="primary" />
                 <Typography variant="body2">
-                  Valid until: {new Date(qrData?.validUntil).toLocaleString()}
+                  Valid until: {new Date(qrData?.expiresAt || qrData?.validUntil).toLocaleString()}
                 </Typography>
               </Stack>
             </Grid>
@@ -315,7 +356,7 @@ const QRAttendanceForm = () => {
               <Stack direction="row" spacing={1} alignItems="center">
                 <EventIcon fontSize="small" color="primary" />
                 <Typography variant="body2">
-                  Session ID: {qrData?.sessionId?.slice(0, 8)}...
+                  QR ID: {(qrData?.id || qrData?.sessionId)?.slice(0, 8)}...
                 </Typography>
               </Stack>
             </Grid>

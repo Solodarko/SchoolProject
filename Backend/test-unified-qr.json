@@ -1,0 +1,11 @@
+{
+  "qrCodeData": "{\"id\":\"test123\",\"location\":{\"latitude\":5.29888,\"longitude\":-2.001131},\"type\":\"attendance_qr\"}",
+  "userLocation": {
+    "latitude": 5.29888,
+    "longitude": -2.001131
+  },
+  "studentId": "12345",
+  "additionalData": {
+    "source": "direct_test"
+  }
+}

@@ -21,7 +21,8 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider
+  Divider,
+  TextField
 } from '@mui/material';
 import {
   QrCode,
@@ -37,13 +38,14 @@ import {
   CheckCircle,
   Warning,
   Person,
-  Badge
+  Badge,
+  Settings
 } from '@mui/icons-material';
 import QRCode from 'react-qr-code';
 import { format, addMinutes, differenceInSeconds } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 
-const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => {
+const AdminQRGenerator_GoogleForms = ({ backendUrl, showNotifications, onNotification }) => {
   // Get auth context for user identity
   const { getUserIdentity, isAuthenticated, user, student, displayName } = useAuth();
   
@@ -58,12 +60,28 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
   // Dialog states
   const [historyDialog, setHistoryDialog] = useState(false);
   const [infoDialog, setInfoDialog] = useState(false);
+  const [settingsDialog, setSettingsDialog] = useState(false);
   
   // Settings
   const [autoRotate, setAutoRotate] = useState(true);
   const [showTimer, setShowTimer] = useState(true);
-  const [useGoogleForms, setUseGoogleForms] = useState(true);
-  const [googleFormUrl, setGoogleFormUrl] = useState('');
+  const [googleFormUrl, setGoogleFormUrl] = useState('https://docs.google.com/forms/d/e/1FAIpQLSfRHcJU8EoXqY1jCdLSI2KbMJNrP9Qb8FxTzVnW6kUiEhC5cA/viewform');
+  
+  // Google Forms entry IDs (these need to be updated with your actual form's entry IDs)
+  const [entryIds, setEntryIds] = useState({
+    sessionTitle: 'entry.2005620554',
+    qrCodeId: 'entry.1166974658', 
+    sessionTime: 'entry.839337160',
+    location: 'entry.1065046570',
+    fullName: 'entry.1558976394',
+    email: 'entry.1148209542',
+    studentId: 'entry.474916144',
+    phone: 'entry.992048756',
+    organization: 'entry.1771074052',
+    position: 'entry.1364981901',
+    notes: 'entry.358406923',
+    metadata: 'entry.1456473330'
+  });
   
   // Generate QR code data with user identity
   const generateQRData = useCallback((timestamp = Date.now()) => {
@@ -78,10 +96,10 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
       expiresAt: expiresAt.toISOString(),
       checksum: btoa(`${qrId}_${timestamp}`), // Simple checksum for validation
       location: 'admin_dashboard',
-      // NEW: Attendance form configuration
+      // Attendance form configuration
       attendanceConfig: {
         showForm: true,
-        formType: 'swal_modal',
+        formType: 'google_forms',
         autoSubmit: false,
         requiredFields: ['name', 'email', 'studentId'],
         optionalFields: ['phone', 'organization', 'position', 'notes'],
@@ -115,6 +133,59 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
     
     return qrData;
   }, [getUserIdentity]);
+
+  // Create URL for QR code that points to Google Forms
+  const createQRCodeURL = (qrData) => {
+    if (!googleFormUrl.trim()) {
+      return 'Please configure Google Form URL in settings';
+    }
+
+    // Create URL parameters for pre-filling the form
+    const params = new URLSearchParams();
+    
+    // Session Information
+    if (entryIds.sessionTitle) {
+      params.set(entryIds.sessionTitle, qrData.attendanceConfig?.sessionTitle || `Attendance Session - ${new Date(qrData.timestamp).toLocaleString()}`);
+    }
+    if (entryIds.qrCodeId) {
+      params.set(entryIds.qrCodeId, qrData.id);
+    }
+    if (entryIds.sessionTime) {
+      params.set(entryIds.sessionTime, new Date(qrData.timestamp).toLocaleString());
+    }
+    if (entryIds.location) {
+      params.set(entryIds.location, qrData.location || 'admin_dashboard');
+    }
+    
+    // Pre-fill user data if available
+    if (qrData.user) {
+      if (entryIds.fullName && qrData.user.fullName) {
+        params.set(entryIds.fullName, qrData.user.fullName);
+      }
+      if (entryIds.email && qrData.user.email) {
+        params.set(entryIds.email, qrData.user.email);
+      }
+      if (entryIds.studentId && qrData.user.studentId) {
+        params.set(entryIds.studentId, qrData.user.studentId);
+      }
+      if (entryIds.organization && qrData.user.department) {
+        params.set(entryIds.organization, qrData.user.department);
+      }
+    }
+    
+    // Add metadata
+    if (entryIds.metadata) {
+      params.set(entryIds.metadata, JSON.stringify({
+        qrId: qrData.id,
+        timestamp: qrData.timestamp,
+        adminId: qrData.adminId,
+        generatedBy: qrData.generatedBy,
+        checksum: qrData.checksum
+      }));
+    }
+    
+    return `${googleFormUrl}?${params.toString()}`;
+  };
 
   // Initialize QR code
   const initializeQR = useCallback(() => {
@@ -186,6 +257,14 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
 
   // Start QR generation
   const startQRGeneration = () => {
+    if (!googleFormUrl.trim()) {
+      if (onNotification) {
+        onNotification('Please configure Google Form URL in settings first', 'error');
+      }
+      setSettingsDialog(true);
+      return;
+    }
+    
     setLoading(true);
     setTimeout(() => {
       initializeQR();
@@ -262,57 +341,40 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
     return 'error'; // Red
   };
 
-  // Create dynamic URL for QR code that points to our internal attendance form
-  const createQRCodeURL = (qrData) => {
-    // Use our own application's dynamic route for the attendance form
-    // This eliminates external dependencies and ensures reliable operation
-    
-    const baseUrl = window.location.origin; // Gets current domain (localhost:5173 in dev)
-    const attendanceRoute = '/qr-scan'; // Route defined in App.jsx
-    
-    // Create URL parameters for the attendance form
-    const params = new URLSearchParams();
-    
-    // Session information
-    params.set('session', qrData.attendanceConfig?.sessionTitle || `Attendance - ${new Date(qrData.timestamp).toLocaleString()}`);
-    params.set('qr_id', qrData.id);
-    params.set('time', new Date(qrData.timestamp).toLocaleString());
-    params.set('location', qrData.location || 'admin_dashboard');
-    
-    // Pre-fill user data if available
-    if (qrData.user) {
-      if (qrData.user.fullName) params.set('name', qrData.user.fullName);
-      if (qrData.user.email) params.set('email', qrData.user.email);
-      if (qrData.user.studentId) params.set('student_id', qrData.user.studentId);
-      if (qrData.user.department) params.set('organization', qrData.user.department);
-    }
-    
-    // Add metadata for verification
-    params.set('metadata', JSON.stringify({
-      qrId: qrData.id,
-      timestamp: qrData.timestamp,
-      adminId: qrData.adminId,
-      checksum: qrData.checksum,
-      expiresAt: qrData.expiresAt
-    }));
-    
-    // Build the complete dynamic URL
-    const dynamicUrl = `${baseUrl}${attendanceRoute}?${params.toString()}`;
-    
-    return dynamicUrl;
-  };
-
   return (
     <Box>
+      {/* Google Forms Configuration Alert */}
+      {!googleFormUrl.trim() && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2">Google Forms Not Configured</Typography>
+          <Typography variant="body2">
+            Please configure your Google Form URL in settings to enable mobile QR scanning.
+          </Typography>
+          <Button 
+            color="inherit" 
+            size="small" 
+            onClick={() => setSettingsDialog(true)}
+            sx={{ mt: 1 }}
+          >
+            Configure Now
+          </Button>
+        </Alert>
+      )}
+
       {/* Main QR Generator Card */}
       <Card>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <QrCode />
-              Real-Time QR Code Generator
+              Google Forms QR Generator
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Configure Settings">
+                <IconButton onClick={() => setSettingsDialog(true)}>
+                  <Settings />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="View History">
                 <IconButton onClick={() => setHistoryDialog(true)}>
                   <History />
@@ -364,6 +426,13 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
                     <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
                       QR ID: {currentQRData.id}
                     </Typography>
+
+                    <Chip
+                      label="📱 Mobile Ready"
+                      color="success"
+                      size="small"
+                      sx={{ mt: 1 }}
+                    />
                   </Box>
                 ) : (
                   <Box sx={{ 
@@ -382,7 +451,7 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
                       No QR Code Generated
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Click &quot;Start Generation&quot; to begin
+                      Click "Start Generation" to begin
                     </Typography>
                   </Box>
                 )}
@@ -405,17 +474,32 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
                   >
                     <Typography variant="subtitle2">QR Generation Active</Typography>
                     <Typography variant="body2">
-                      Code rotates every 5 minutes automatically
+                      Pointing to Google Forms - Mobile Ready!
                     </Typography>
                   </Alert>
                 ) : (
                   <Alert severity="info">
                     <Typography variant="subtitle2">QR Generation Stopped</Typography>
                     <Typography variant="body2">
-                      Start generation to create attendance QR codes
+                      Start generation to create Google Forms QR codes
                     </Typography>
                   </Alert>
                 )}
+
+                {/* Google Forms Status */}
+                <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    🌐 Google Forms Integration
+                  </Typography>
+                  <Typography variant="body2" color={googleFormUrl.trim() ? 'success.main' : 'error.main'}>
+                    Status: {googleFormUrl.trim() ? '✅ Configured' : '❌ Not Configured'}
+                  </Typography>
+                  {googleFormUrl.trim() && (
+                    <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                      {googleFormUrl.substring(0, 50)}...
+                    </Typography>
+                  )}
+                </Box>
 
                 {/* User Identity Info */}
                 {isAuthenticated && (
@@ -452,7 +536,7 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
                   </Box>
                 )}
 
-                {/* Settings */}
+                {/* Basic Settings */}
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>Settings</Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -525,10 +609,10 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
                     <Button
                       variant="outlined"
                       startIcon={<Share />}
-                      onClick={() => navigator.clipboard.writeText(JSON.stringify(currentQRData))}
+                      onClick={() => navigator.clipboard.writeText(createQRCodeURL(currentQRData))}
                       sx={{ flex: 1 }}
                     >
-                      Copy Data
+                      Copy URL
                     </Button>
                   </Box>
                 )}
@@ -553,6 +637,100 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Settings Dialog */}
+      <Dialog open={settingsDialog} onClose={() => setSettingsDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Google Forms Configuration</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+            <Alert severity="info">
+              <Typography variant="subtitle2">Setup Instructions:</Typography>
+              <Typography variant="body2">
+                1. Create a Google Form with attendance fields<br/>
+                2. Get the form URL and entry IDs<br/>
+                3. Enter them below to enable mobile QR scanning
+              </Typography>
+            </Alert>
+
+            <TextField
+              label="Google Form URL"
+              fullWidth
+              multiline
+              rows={3}
+              value={googleFormUrl}
+              onChange={(e) => setGoogleFormUrl(e.target.value)}
+              placeholder="https://docs.google.com/forms/d/e/1FAIpQLSf_YOUR_FORM_ID/viewform"
+              helperText="Paste your Google Form URL here"
+            />
+
+            <Typography variant="h6">Entry IDs Configuration</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Enter the entry IDs from your Google Form (inspect form fields to find these):
+            </Typography>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Session Title Entry ID"
+                  fullWidth
+                  value={entryIds.sessionTitle}
+                  onChange={(e) => setEntryIds(prev => ({ ...prev, sessionTitle: e.target.value }))}
+                  placeholder="entry.2005620554"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="QR Code ID Entry ID"
+                  fullWidth
+                  value={entryIds.qrCodeId}
+                  onChange={(e) => setEntryIds(prev => ({ ...prev, qrCodeId: e.target.value }))}
+                  placeholder="entry.1166974658"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Full Name Entry ID"
+                  fullWidth
+                  value={entryIds.fullName}
+                  onChange={(e) => setEntryIds(prev => ({ ...prev, fullName: e.target.value }))}
+                  placeholder="entry.1558976394"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Email Entry ID"
+                  fullWidth
+                  value={entryIds.email}
+                  onChange={(e) => setEntryIds(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="entry.1148209542"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Student ID Entry ID"
+                  fullWidth
+                  value={entryIds.studentId}
+                  onChange={(e) => setEntryIds(prev => ({ ...prev, studentId: e.target.value }))}
+                  placeholder="entry.474916144"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Phone Entry ID"
+                  fullWidth
+                  value={entryIds.phone}
+                  onChange={(e) => setEntryIds(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="entry.992048756"
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettingsDialog(false)}>Cancel</Button>
+          <Button onClick={() => setSettingsDialog(false)} variant="contained">Save Configuration</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* History Dialog */}
       <Dialog open={historyDialog} onClose={() => setHistoryDialog(false)} maxWidth="md" fullWidth>
@@ -612,34 +790,37 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
 
       {/* Information Dialog */}
       <Dialog open={infoDialog} onClose={() => setInfoDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>QR Code Information</DialogTitle>
+        <DialogTitle>Google Forms QR System</DialogTitle>
         <DialogContent>
           <Typography paragraph>
-            This QR code system generates time-based attendance codes that automatically rotate every 5 minutes for security.
+            This system generates QR codes that open Google Forms on mobile devices, making attendance capture accessible without deploying the application.
           </Typography>
           
           <Typography variant="subtitle2" gutterBottom>Features:</Typography>
           <List dense>
             <ListItem>
+              <ListItemText primary="• Mobile-accessible Google Forms" />
+            </ListItem>
+            <ListItem>
               <ListItemText primary="• Auto-rotation every 5 minutes" />
             </ListItem>
             <ListItem>
-              <ListItemText primary="• Unique timestamp-based IDs" />
+              <ListItemText primary="• Pre-filled user information" />
             </ListItem>
             <ListItem>
-              <ListItemText primary="• Built-in expiration system" />
+              <ListItemText primary="• Automatic data collection in Google Sheets" />
             </ListItem>
             <ListItem>
-              <ListItemText primary="• Download and sharing capabilities" />
-            </ListItem>
-            <ListItem>
-              <ListItemText primary="• Complete generation history" />
+              <ListItemText primary="• No deployment required" />
             </ListItem>
           </List>
 
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Security:</Typography>
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>How it works:</Typography>
           <Typography variant="body2" color="text.secondary">
-            Each QR code contains a checksum and expiration timestamp. The system works with your existing geolocation and geofencing features to ensure secure attendance tracking.
+            1. QR codes contain URLs pointing to your Google Form<br/>
+            2. User data is pre-filled using URL parameters<br/>
+            3. Responses are automatically collected in Google Sheets<br/>
+            4. Works on any mobile device with internet access
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -650,4 +831,4 @@ const AdminQRGenerator = ({ backendUrl, showNotifications, onNotification }) => 
   );
 };
 
-export default AdminQRGenerator;
+export default AdminQRGenerator_GoogleForms;
